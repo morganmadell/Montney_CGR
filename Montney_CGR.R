@@ -375,24 +375,30 @@ for(k in 1:length(group)){
   loess_fit_24 <- loess(log10(CGR_24) ~ log10(peak_CGR), na.omit(subset(temp24,CGR_24>min_CGR,select=c(peak_CGR,CGR_24))), span=0.33, family="symmetric",weights=1/peak_CGR)
 
   
-    plot(log10(CGR_1) ~ log10(peak_CGR), temp, xlim=c(-2,5),ylim=c(-2,5),xlab="Peak CGR (bbl/MMcf)",ylab="CGR after 1 Month",main="Montney CGRs After 1 Month")
+  plot(log10(CGR_1) ~ log10(peak_CGR), temp, xaxt="n", yaxt="n", xlim=c(-2,5),ylim=c(-2,5),xlab="Peak CGR (bbl/MMcf)",ylab="CGR after 1 Month",main="Montney CGRs After 1 Month")
   #lines(log10(temp$peak_CGR[!is.na(temp$CGR_1) & (temp$CGR_1>min_CGR)]), predict(loess_fit_1,subset(temp, !is.na(temp$CGR_1) & (temp$CGR_1>min_CGR))), col = "blue")
   lines(log10(temp$peak_CGR[!is.na(temp$CGR_1) & (temp$CGR_1>min_CGR)]), predict(loess_fit_1,subset(temp, !is.na(temp$CGR_1) & (temp$CGR_1>min_CGR))), col = "black")
   abline(a=0,b=1,col="red")
+  axis(1,at=(-2:5),labels=expression(10^{-2}, 10^{-1}, 10^{0}, 10^{1}, 10^{2}, 10^{3}, 10^{4}, 10^{5}))
+  axis(2,at=(-2:5),labels=expression(10^{-2}, 10^{-1}, 10^{0}, 10^{1}, 10^{2}, 10^{3}, 10^{4}, 10^{5}))
   legend(-2,5, c("Raw Data", "Constant CGR", "Best Fit"), pch=c(1,27,27), lty=c(0,1,1), col=c("Black","Red","Black"))
-
-  plot(log10(CGR_6) ~ log10(peak_CGR), temp, xlim=c(-2,5),ylim=c(-2,5),xlab="Peak CGR (bbl/MMcf)",ylab="CGR after 6 Months",main="Montney CGRs After 6 Months")
+  
+  plot(log10(CGR_6) ~ log10(peak_CGR), temp, xaxt="n", yaxt="n", xlim=c(-2,5),ylim=c(-2,5),xlab="Peak CGR (bbl/MMcf)",ylab="CGR after 6 Months",main="Montney CGRs After 6 Months")
   lines(log10(temp$peak_CGR[!is.na(temp$CGR_6) & (temp$CGR_6>min_CGR)]), predict(loess_fit_1,subset(temp, !is.na(temp$CGR_6) & (temp$CGR_6>min_CGR))), col = "light blue")
   abline(a=0,b=1,col="red")
+  axis(1,at=(-2:5),labels=expression(10^{-2}, 10^{-1}, 10^{0}, 10^{1}, 10^{2}, 10^{3}, 10^{4}, 10^{5}))
+  axis(2,at=(-2:5),labels=expression(10^{-2}, 10^{-1}, 10^{0}, 10^{1}, 10^{2}, 10^{3}, 10^{4}, 10^{5}))
   legend(-2,5, c("Raw Data", "Constant CGR", "Best Fit"), pch=c(1,27,27), lty=c(0,1,1), col=c("Black","Red","Light Blue"))
   
-  plot(log10(CGR_18) ~ log10(peak_CGR), temp, xlim=c(-2,5),ylim=c(-2,5),xlab="Peak CGR (bbl/MMcf)",ylab="CGR after 18 Months",main="Montney CGRs After 18 Months")
+  plot(log10(CGR_18) ~ log10(peak_CGR), temp, xaxt="n", yaxt="n", xlim=c(-2,5),ylim=c(-2,5),xlab="Peak CGR (bbl/MMcf)",ylab="CGR after 18 Months",main="Montney CGRs After 18 Months")
   lines(log10(temp$peak_CGR[!is.na(temp$CGR_18) & (temp$CGR_18>min_CGR)]), predict(loess_fit_1,subset(temp, !is.na(temp$CGR_18) & (temp$CGR_18>min_CGR))), col = "green")
   abline(a=0,b=1,col="red")
+  axis(1,at=(-2:5),labels=expression(10^{-2}, 10^{-1}, 10^{0}, 10^{1}, 10^{2}, 10^{3}, 10^{4}, 10^{5}))
+  axis(2,at=(-2:5),labels=expression(10^{-2}, 10^{-1}, 10^{0}, 10^{1}, 10^{2}, 10^{3}, 10^{4}, 10^{5}))
   legend(-2,5, c("Raw Data", "Constant CGR", "Best Fit"), pch=c(1,27,27), lty=c(0,1,1), col=c("Black","Red","Green"))
   
   rm(temp1,temp2,temp3,temp6,temp12,temp18,temp24)
-   
+  
   
   plot(temp$peak_CGR[!is.na(temp$CGR_1) & (temp$CGR_1>min_CGR)], 10^(predict(loess_fit_1,subset(temp, !is.na(temp$CGR_1) & (temp$CGR_1>min_CGR))))/temp$peak_CGR[!is.na(temp$CGR_1) & (temp$CGR_1>min_CGR)], xlim=c(0,200),ylim=c(0,1.0), main="Month CGR Trends", xlab="Peak CGR (bbl/MMcf)",ylab="Ratio of CGR to Peak CGR")
   points(temp$peak_CGR[!is.na(temp$CGR_2) & (temp$CGR_2>min_CGR)], 10^(predict(loess_fit_2,subset(temp, !is.na(temp$CGR_2) & (temp$CGR_2>min_CGR))))/temp$peak_CGR[!is.na(temp$CGR_2) & (temp$CGR_2>min_CGR)],col="dark blue")  
