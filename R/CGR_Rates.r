@@ -1,6 +1,6 @@
-#' Calculate the gas reserves using several different exponential and harmonic declines.
+#' Calculate the Condensate Gas Ratio for various months starting with a pre-defined initial (peak) month
 #' 
-#' \code{Gas_Reserves}
+#' \code{CGR_Rates}
 #'
 #' @param x list of data to parse
 #' @export
@@ -23,8 +23,11 @@ CGR_Rates <- function(x, peak_month=0, min_CGR=0.01){
   CGR_j <- rep(NA_real_, 24)
   num_months <- length(qg)
   
-  if(num_months>1) {
+  if(num_months>2) {
     CGR <- 1000.0*(qo+qc)/qg
+    #CGR <- rollmean(CGR, 3)
+    #CGR <- c(CGR[1]+min_CGR, CGR, CGR[length(CGR)])
+    #CGR[CGR<0] <- min_CGR
     peak_CGR_index <- which.max(CGR)
     peak_CGR <- CGR[peak_CGR_index]
     if(!(peak_month == 0)) {

@@ -8,8 +8,8 @@ library(RODBC)
 library(doBy)
 library(zoo)
 library(snowfall)
-library(rmongodb)
-#library(mongolite)
+#library(rmongodb)
+library(mongolite)
 library(R.utils)
 library(deldir)
 #library(geoR)
@@ -19,6 +19,7 @@ library(deldir)
 #library(rjson)
 #library(lubridate)
 library(MASS)
+library(classInt)
 
 
 
@@ -43,27 +44,31 @@ if(os=="Linux") {
   data_base$dsn <- "ORAPROD_Pgm_R"
   data_base$uid <- "pgm_r"
   data_base$pwd <- "vE5De9T"
-  mongo_data_base$host <- "db.gljdata.com:27017"
+  data_base$uid <- "monolith"
+  data_base$pwd <- "RqJCZinDk2I"
+  mongo_data_base$host <- "mongodb-prod.corp.gljpc.com:27017"
   mongo_data_base$rsname <- "gljdata_rs01"
-  mongo_data_base$dbname <- "gljdata_test"
-  mongo_data_base$timout <- 1000
-  mongo_data_base$user <- "mike"
-  mongo_data_base$pwd <- "glj"
-  mongo_data_base$collection <- paste(mongo_data_base$dbname, "base_declines", sep=".")
+  mongo_data_base$dbname <- "Monolith"
+  mongo_data_base$user <- "Monolith_Rdr"
+  mongo_data_base$pwd <- "jrk6rZ$YVdn"  
+  mongo_data_base$user <- "Monolith_Upd"
+  mongo_data_base$pwd <- "sdyC0vo6uY"
+  mongo_data_base$collection <- "base_declines"
 } else {
   CPU_count <- 6
   workdir <- "C:/temp/Montney_CGR/"
   options(fftempdir=paste(workdir, "fftemp", sep=""))
-  data_base$dsn <- "R Data Source Oracle 11"
-  data_base$uid <- "pgm_r"
-  data_base$pwd <- "vE5De9T"
-  mongo_data_base$host <- "db.gljdata.com:27017"
+  data_base$dsn <- "ORAWRHS"
+  data_base$uid <- "monolith"
+  data_base$pwd <- "RqJCZinDk2I"
+  mongo_data_base$host <- "mongodb-prod.corp.gljpc.com:27017"
   mongo_data_base$rsname <- "gljdata_rs01"
-  mongo_data_base$dbname <- "gljdata_test"
-  mongo_data_base$timout <- 1000
-  mongo_data_base$user <- "mike"
-  mongo_data_base$pwd <- "glj"
-  mongo_data_base$collection <- paste(mongo_data_base$dbname, "base_declines", sep=".")
+  mongo_data_base$dbname <- "Monolith"
+  mongo_data_base$user <- "Monolith_Rdr"
+  mongo_data_base$pwd <- "jrk6rZ$YVdn"  
+  mongo_data_base$user <- "Monolith_Upd"
+  mongo_data_base$pwd <- "sdyC0vo6uY"
+  mongo_data_base$collection <- "base_declines"
 }
 setwd(workdir)
 
@@ -101,7 +106,7 @@ if(data_base$vendor =="HPDI") well_query <- "select HPDI_PDEN_DESC.ENTITY_ID, HP
 if(data_base$vendor =="HPDI") prod_query <- "select HPDI_PDEN_DESC.ENTITY_ID, HPDI_PDEN_DESC.TOTAL_DEPTH, HPDI_PDEN_PROD.PROD_DATE, HPDI_PDEN_PROD.GAS, HPDI_PDEN_PROD.WTR, HPDI_PDEN_PROD.LIQ from HPDI_PDEN_DESC, HPDI_PDEN_PROD where HPDI_PDEN_PROD.ENTITY_ID=HPDI_PDEN_DESC.ENTITY_ID and HPDI_PDEN_DESC.ENTITY_ID in ('"
 
 # connect to our mongodb
-mongodb <- mongo.create(host=mongo_data_base$host, username=mongo_data_base$user, password=mongo_data_base$pwd, db=mongo_data_base$dbname, timeout=mongo_data_base$timout)
+#mongodb <- mongo.create(host=mongo_data_base$host, username=mongo_data_base$user, password=mongo_data_base$pwd, db=mongo_data_base$dbname, timeout=mongo_data_base$timout)
 
 
 
@@ -109,7 +114,7 @@ mongodb <- mongo.create(host=mongo_data_base$host, username=mongo_data_base$user
 # Load in the Well List #
 #########################
 
-well_list <- read.csv("Well_List.csv")[,1]
+well_list <- read.csv("Well_List_All.csv")[,1]
 if(data_base$vendor =="PPDM") well_list <- capitalize(as.character(levels(well_list))[well_list])
 
 
@@ -263,11 +268,24 @@ for(k in 1:length(group)){
     )
   )
   
+  temp2 <- as.ffdf(
+    data.frame(
+      UWI=well_data$X_UWI_DISPLAY[,], 
+      peak_CGR=rep(NA_real_, length(well_data$X_UWI_DISPLAY)), 
+      CGR_longterm=rep(NA_real_, length(well_data$X_UWI_DISPLAY)), 
+      CGR_6=rep(NA_real_, length(well_data$X_UWI_DISPLAY)), 
+      CGR_12=rep(NA_real_, length(well_data$X_UWI_DISPLAY)), 
+      CGR_18=rep(NA_real_, length(well_data$X_UWI_DISPLAY)), 
+      CGR_24=rep(NA_real_, length(well_data$X_UWI_DISPLAY))
+    )
+  )
   
   if(!exists("well_results")) {  
     well_results <- temp
+    well_results2 <- temp2
   } else {
     well_results <- ffdfappend(well_results,temp[,],adjustvmode=TRUE)
+    well_results2 <- ffdfappend(well_results2,temp2[,],adjustvmode=TRUE)
   }
   
   
@@ -295,23 +313,29 @@ for(k in 1:length(group)){
   
   sfInit(parallel=TRUE, cpus=CPU_count, type="SOCK", socketHosts=rep('localhost',CPU_count) )
   sfExport("CGR_Rates","x")
-  #sfLibrary(MASS)
-  #sfLibrary(LambertW)
   temp <- sfClusterApplyLB(1:length(x), function(i) CGR_Rates(x[i], peak_month=0))
   sfStop()
   
-  
+  sfInit(parallel=TRUE, cpus=CPU_count, type="SOCK", socketHosts=rep('localhost',CPU_count) )
+  sfExport("CGR_Slope","x")
+  sfLibrary(MASS)
+  temp2 <- sfClusterApplyLB(1:length(x), function(i) CGR_Slope(x[i]))
+  sfStop()
+  temp2 <- matrix(as.numeric(unlist(temp2)), ncol=6, byrow=TRUE)
+  colnames(temp2) <- c("Peak_CGR", "Longterm_CGR", "CGR_First06Months", "CGR_First12Months", "CGR_First18Months", "CGR_First24Months")
+  temp2 <- as.data.frame(temp2)
+  temp2$UWI <- names(x)
   
   if(data_base$vendor =="PPDM") {
-    well_results$peak_CGR[na.omit(match(well_results$UWI[,][], levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,1]
-    well_results$CGR_longterm[na.omit(match(well_results$UWI[,][], levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,2]
-    well_results$CGR_1[na.omit(match(well_results$UWI[,][], levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,3]
-    well_results$CGR_2[na.omit(match(well_results$UWI[,][], levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,4]
-    well_results$CGR_3[na.omit(match(well_results$UWI[,][], levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,5]
-    well_results$CGR_6[na.omit(match(well_results$UWI[,][], levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,6]
-    well_results$CGR_12[na.omit(match(well_results$UWI[,][], levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,7]
-    well_results$CGR_18[na.omit(match(well_results$UWI[,][], levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,8]
-    well_results$CGR_24[na.omit(match(well_results$UWI[,][], levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,9]
+    well_results$peak_CGR[na.omit(match(as.character(well_results$UWI[,]), levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,1]
+    well_results$CGR_longterm[na.omit(match(as.character(well_results$UWI[,]), levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,2]
+    well_results$CGR_1[na.omit(match(as.character(well_results$UWI[,]), levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,3]
+    well_results$CGR_2[na.omit(match(as.character(well_results$UWI[,]), levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,4]
+    well_results$CGR_3[na.omit(match(as.character(well_results$UWI[,]), levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,5]
+    well_results$CGR_6[na.omit(match(as.character(well_results$UWI[,]), levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,6]
+    well_results$CGR_12[na.omit(match(as.character(well_results$UWI[,]), levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,7]
+    well_results$CGR_18[na.omit(match(as.character(well_results$UWI[,]), levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,8]
+    well_results$CGR_24[na.omit(match(as.character(well_results$UWI[,]), levels(prod_data$X_UWI_DISPLAY[,])))] <- matrix(unlist(temp), ncol=9, byrow=TRUE)[,9]
   }
   
   if(data_base$vendor =="HPDI") {
@@ -326,13 +350,70 @@ for(k in 1:length(group)){
     well_results$CGR_24[match(names(x), well_results$UWI[,][][(well_results$Product==products[j])[]])] <- matrix(unlist(temp), ncol=16, byrow=TRUE)[,9]
   }
   
-
+  if(FALSE) {
+    CGR.ecdf = ecdf(temp2$CGR_First06Months[!(temp2$CGR_First06Months==0)])
+    plot(CGR.ecdf, xlim=c(-.000001,.000001), ylim=c(0,1), xlab = 'Slope in CGR Trend (bbl/MMcf/day)', ylab = 'Percentile', main = 'Empirical Cumluative Distribution\nChange in CGR with Time')
+    for(i in 0:10) {
+      abline(h = i/10, col="grey")
+    }
+    abline(v=0, col="grey")
+    CGR_06Months <- temp2$CGR_First06Months[!(temp2$CGR_First06Months==0)]
+    CGR_12Months <- temp2$CGR_First12Months[!(temp2$CGR_First12Months==0)]
+    CGR_18Months <- temp2$CGR_First18Months[!(temp2$CGR_First18Months==0)]
+    CGR_24Months <- temp2$CGR_First24Months[!(temp2$CGR_First24Months==0)]
+    CGR_06Months.ecdf <- ecdf(CGR_06Months)
+    CGR_12Months.ecdf <- ecdf(CGR_12Months)
+    CGR_18Months.ecdf <- ecdf(CGR_18Months)
+    CGR_24Months.ecdf <- ecdf(CGR_24Months)
+    points(CGR_12Months, CGR_12Months.ecdf(CGR_12Months),col="light blue")
+    points(CGR_18Months, CGR_18Months.ecdf(CGR_18Months),col="blue")
+    points(CGR_24Months, CGR_24Months.ecdf(CGR_24Months),col="dark blue")
     
+    CGR.ecdf = ecdf(temp2$CGR_First06Months)
+    plot(CGR.ecdf, xlim=c(-.000001,.000001), ylim=c(0,1), xlab = 'Slope in CGR Trend (bbl/MMcf/day)', ylab = 'Percentile', main = 'Empirical Cumluative Distribution\nChange in CGR with Time')
+    for(i in 0:10) {
+      abline(h = i/10, col="grey")
+    }
+    abline(v=0, col="grey")
+    CGR_06Months <- temp2$CGR_First06Months
+    CGR_12Months <- temp2$CGR_First12Months
+    CGR_18Months <- temp2$CGR_First18Months
+    CGR_24Months <- temp2$CGR_First24Months
+    CGR_06Months.ecdf <- ecdf(CGR_06Months)
+    CGR_12Months.ecdf <- ecdf(CGR_12Months)
+    CGR_18Months.ecdf <- ecdf(CGR_18Months)
+    CGR_24Months.ecdf <- ecdf(CGR_24Months)
+    points(CGR_12Months, CGR_12Months.ecdf(CGR_12Months),col="light blue")
+    points(CGR_18Months, CGR_18Months.ecdf(CGR_18Months),col="blue")
+    points(CGR_24Months, CGR_24Months.ecdf(CGR_24Months),col="dark blue")
+    
+  }
+  
+  if(FALSE) {
+    write.csv(temp2, file = paste(ResourcePlay, "_Group_", k, "_CGR_Slope.csv",sep=""), quote=TRUE)
+    
+    # Seperate the wells into a series of bins based on the the slop of the CGR and save bins as a series of csv files
+    #X <- c(0,2,5,10,25,50,10000)
+    temp3 <- subset(temp2, !(is.na(CGR_First18Months)))$CGR_First18Months
+    #X <- round(100000000*classIntervals(temp3, n=num_intervals, style="quantile")$brks)/100000000
+    X <- c(-400, -15, -5, -1, 1, 5, 15)/100000000
+    interval_test_rate <- findInterval(subset(temp2, !(is.na(CGR_First18Months)))$CGR_First18Months, X)
+    for(j in 1:length(X)){
+      #well_results$UWI[interval_test_rate == j]
+      write.csv(
+        temp2$UWI[!is.na(temp2$CGR_First18Months)][interval_test_rate == j], 
+        file = paste(ResourcePlay, "_Group_", k, " WGR over ",X[j],".csv",sep="")
+      ) 
+    }
+    rm(X)
+    
+  }
+  
   #Clean up the unneeded variables
-  rm(temp)
+  rm(temp, temp2, temp3)
   rm(missing_wells)
   gc()
-
+  
   
   if(k==1) {  
     group_results <- merge(well_data, well_results, by.x = "X_UWI_DISPLAY", by.y = "UWI", all.x=FALSE, all.y=FALSE, trace = TRUE)
@@ -373,7 +454,7 @@ for(k in 1:length(group)){
   loess_fit_12 <- loess(log10(CGR_12) ~ log10(peak_CGR), na.omit(subset(temp12,CGR_12>min_CGR,select=c(peak_CGR,CGR_12))), span=0.33, family="gaussian",weights=1/peak_CGR)
   loess_fit_18 <- loess(log10(CGR_18) ~ log10(peak_CGR), na.omit(subset(temp18,CGR_18>min_CGR,select=c(peak_CGR,CGR_18))), span=0.33, family="gaussian",weights=1/peak_CGR)
   loess_fit_24 <- loess(log10(CGR_24) ~ log10(peak_CGR), na.omit(subset(temp24,CGR_24>min_CGR,select=c(peak_CGR,CGR_24))), span=0.33, family="symmetric",weights=1/peak_CGR)
-
+  
   
   plot(log10(CGR_1) ~ log10(peak_CGR), temp, xaxt="n", yaxt="n", xlim=c(-2,5),ylim=c(-2,5),xlab="Peak CGR (bbl/MMcf)",ylab="CGR after 1 Month",main="Montney CGRs After 1 Month")
   #lines(log10(temp$peak_CGR[!is.na(temp$CGR_1) & (temp$CGR_1>min_CGR)]), predict(loess_fit_1,subset(temp, !is.na(temp$CGR_1) & (temp$CGR_1>min_CGR))), col = "blue")
@@ -409,7 +490,24 @@ for(k in 1:length(group)){
   points(temp$peak_CGR[!is.na(temp$CGR_24) & (temp$CGR_24>min_CGR)], 10^(predict(loess_fit_24,subset(temp, !is.na(temp$CGR_24) & (temp$CGR_24>min_CGR))))/temp$peak_CGR[!is.na(temp$CGR_24) & (temp$CGR_24>min_CGR)],col="dark green")  
   legend(150,1.0, c("1 Month", "2 Months", "3 Months", "6 Months", "12 Months", "18 Months", "24 Months"),col=c("Black","Dark Blue", "Blue", "Light Blue", "Light Green", "Green", "Dark Green"), lty=rep(1,6))
   
- 
+  
+  
+  #Let's try a new algorithm, one that tries to fit a decline to the CGR.  Speficically, let's try fitting a line to a plot of log(CGR) vs Gp
+  if(FALSE) {
+    for(i in 1:length(x)) {
+      i<-0
+      i <- 1+i
+      CGR_x <- x[[i]]$Qg
+      CGR_y <- log((x[[i]]$qo+x[[i]]$qc)/x[[i]]$qg)
+      CGR_x <- CGR_x[is.finite(CGR_y)]
+      CGR_y <- CGR_y[is.finite(CGR_y)]
+      plot(CGR_x, CGR_y)
+      CGR_decline <- lqs(CGR_x, CGR_y, method="lms")
+      abline(CGR_decline)
+    }
+  }
+  
+  
 }	# end of the for loop that processes each group
 
 
